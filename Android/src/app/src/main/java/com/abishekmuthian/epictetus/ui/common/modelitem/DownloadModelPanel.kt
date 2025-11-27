@@ -21,13 +21,14 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.abishekmuthian.epictetus.data.Model
 import com.abishekmuthian.epictetus.data.ModelDownloadStatus
 import com.abishekmuthian.epictetus.data.Task
-import com.abishekmuthian.epictetus.ui.common.DownloadAndTryButton
 import com.abishekmuthian.epictetus.ui.modelmanager.ModelManagerViewModel
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -45,20 +46,16 @@ fun DownloadModelPanel(
 ) {
   with(sharedTransitionScope) {
     Box(contentAlignment = Alignment.BottomEnd, modifier = modifier.fillMaxWidth()) {
-      DownloadAndTryButton(
-        task = task,
-        model = model,
-        downloadStatus = downloadStatus,
-        enabled = true,
-        modelManagerViewModel = modelManagerViewModel,
-        onClicked = onTryItClicked,
-        compact = !isExpanded,
+      Button(
+        onClick = onTryItClicked,
         modifier =
           Modifier.sharedElement(
             sharedContentState = rememberSharedContentState(key = "download_button"),
             animatedVisibilityScope = animatedVisibilityScope,
           ),
-      )
+      ) {
+        Text("Try It")
+      }
     }
   }
 }

@@ -16,12 +16,7 @@
 
 package com.abishekmuthian.epictetus.ui.common
 
-import android.Manifest
 import android.content.Context
-import android.content.pm.PackageManager
-import android.net.Uri
-import android.os.Build
-import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -48,12 +43,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
 import com.abishekmuthian.epictetus.data.Model
 import com.abishekmuthian.epictetus.data.Task
-import com.abishekmuthian.epictetus.ui.modelmanager.ModelManagerViewModel
-import java.io.File
 import kotlin.math.ln
 import kotlin.math.pow
 import kotlinx.coroutines.delay
@@ -146,41 +137,7 @@ fun getDistinctiveColor(index: Int): Color {
   return colors[index % colors.size]
 }
 
-fun Context.createTempPictureUri(
-  fileName: String = "picture_${System.currentTimeMillis()}",
-  fileExtension: String = ".png",
-): Uri {
-  val tempFile = File.createTempFile(fileName, fileExtension, cacheDir).apply { createNewFile() }
 
-  return FileProvider.getUriForFile(
-    applicationContext,
-    "com.google.aiedge.gallery.provider" /* {applicationId}.provider */,
-    tempFile,
-  )
-}
-
-fun checkNotificationPermissionAndStartDownload(
-  context: Context,
-  launcher: ManagedActivityResultLauncher<String, Boolean>,
-  modelManagerViewModel: ModelManagerViewModel,
-  task: Task,
-  model: Model,
-) {
-  // Check permission
-  when (PackageManager.PERMISSION_GRANTED) {
-    // Already got permission. Call the lambda.
-    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) -> {
-      modelManagerViewModel.downloadModel(task = task, model = model)
-    }
-
-    // Otherwise, ask for permission
-    else -> {
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
-      }
-    }
-  }
-}
 
 fun ensureValidFileName(fileName: String): String {
   return fileName.replace(Regex("[^a-zA-Z0-9._-]"), "_")

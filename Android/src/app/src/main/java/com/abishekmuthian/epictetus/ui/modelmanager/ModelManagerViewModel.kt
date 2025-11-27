@@ -24,14 +24,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.abishekmuthian.epictetus.AppLifecycleProvider
 import com.abishekmuthian.epictetus.BuildConfig
-import com.abishekmuthian.epictetus.common.ProjectConfig
-import com.abishekmuthian.epictetus.common.getJsonResponse
 import com.abishekmuthian.epictetus.customtasks.common.CustomTask
 import com.abishekmuthian.epictetus.data.Accelerator
 import com.abishekmuthian.epictetus.data.BuiltInTaskId
 import com.abishekmuthian.epictetus.data.Config
 import com.abishekmuthian.epictetus.data.DataStoreRepository
-import com.abishekmuthian.epictetus.data.DownloadRepository
 import com.abishekmuthian.epictetus.data.EMPTY_MODEL
 import com.abishekmuthian.epictetus.data.IMPORTS_DIR
 import com.abishekmuthian.epictetus.data.Model
@@ -48,19 +45,12 @@ import com.google.gson.Gson
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import net.openid.appauth.AuthorizationException
-import net.openid.appauth.AuthorizationRequest
-import net.openid.appauth.AuthorizationResponse
-import net.openid.appauth.AuthorizationService
-import net.openid.appauth.ResponseTypeValues
 
 private const val TAG = "AGModelManagerViewModel"
 private const val TEXT_INPUT_HISTORY_MAX_SIZE = 50
@@ -79,21 +69,6 @@ enum class ModelInitializationStatusType {
   ERROR,
 }
 
-enum class TokenStatus {
-  NOT_STORED,
-  EXPIRED,
-  NOT_EXPIRED,
-}
-
-enum class TokenRequestResultType {
-  FAILED,
-  SUCCEEDED,
-  USER_CANCELLED,
-}
-
-data class TokenStatusAndData(val status: TokenStatus, val data: AccessTokenData?)
-
-data class TokenRequestResult(val status: TokenRequestResultType, val errorMessage: String? = null)
 
 data class ModelManagerUiState(
   /** A list of tasks available in the application. */
@@ -140,7 +115,6 @@ data class ModelManagerUiState(
 open class ModelManagerViewModel
 @Inject
 constructor(
-  private val downloadRepository: DownloadRepository,
   private val dataStoreRepository: DataStoreRepository,
   private val lifecycleProvider: AppLifecycleProvider,
   private val customTasks: Set<@JvmSuppressWildcards CustomTask>,
@@ -157,13 +131,6 @@ constructor(
     }
   }
 
-  val authService = AuthorizationService(context)
-  var curAccessToken: String = ""
-
-  override fun onCleared() {
-    super.onCleared()
-    authService.dispose()
-  }
 
   fun getTaskById(id: String): Task? {
     return uiState.value.tasks.find { it.id == id }
@@ -211,28 +178,6 @@ constructor(
     _uiState.update { _uiState.value.copy(selectedModel = model) }
   }
 
-  fun downloadModel(task: Task, model: Model) {
-    // Update status.
-    setDownloadStatus(
-      curModel = model,
-      status = ModelDownloadStatus(status = ModelDownloadStatusType.IN_PROGRESS),
-    )
-
-    // Delete the model files first.
-    deleteModel(task = task, model = model)
-
-    // Start to send download request.
-    downloadRepository.downloadModel(
-      task = task,
-      model = model,
-      onStatusUpdated = this::setDownloadStatus,
-    )
-  }
-
-  fun cancelDownloadModel(task: Task, model: Model) {
-    downloadRepository.cancelDownloadModel(model)
-    deleteModel(task = task, model = model)
-  }
 
   fun deleteModel(task: Task, model: Model) {
     if (model.imported) {
@@ -443,22 +388,6 @@ constructor(
     dataStoreRepository.saveTheme(theme = theme)
   }
 
-  fun getModelUrlResponse(model: Model, accessToken: String? = null): Int {
-    try {
-      val url = URL(model.url)
-      val connection = url.openConnection() as HttpURLConnection
-      if (accessToken != null) {
-        connection.setRequestProperty("Authorization", "Bearer $accessToken")
-      }
-      connection.connect()
-
-      // Report the result.
-      return connection.responseCode
-    } catch (e: Exception) {
-      Log.e(TAG, "$e")
-      return -1
-    }
-  }
 
   fun addImportedLlmModel(info: ImportedModel) {
     Log.d(TAG, "adding imported llm model: $info")
@@ -526,173 +455,10 @@ constructor(
     dataStoreRepository.saveImportedModels(importedModels = importedModels)
   }
 
-  fun getTokenStatusAndData(): TokenStatusAndData {
-    // Try to load token data from DataStore.
-    var tokenStatus = TokenStatus.NOT_STORED
-    Log.d(TAG, "Reading token data from data store...")
-    val tokenData = dataStoreRepository.readAccessTokenData()
 
-    // Token exists.
-    if (tokenData != null && tokenData.accessToken.isNotEmpty()) {
-      Log.d(TAG, "Token exists and loaded.")
 
-      // Check expiration (with 5-minute buffer).
-      val curTs = System.currentTimeMillis()
-      val expirationTs = tokenData.expiresAtMs - 5 * 60
-      Log.d(
-        TAG,
-        "Checking whether token has expired or not. Current ts: $curTs, expires at: $expirationTs",
-      )
-      if (curTs >= expirationTs) {
-        Log.d(TAG, "Token expired!")
-        tokenStatus = TokenStatus.EXPIRED
-      } else {
-        Log.d(TAG, "Token not expired.")
-        tokenStatus = TokenStatus.NOT_EXPIRED
-        curAccessToken = tokenData.accessToken
-      }
-    } else {
-      Log.d(TAG, "Token doesn't exists.")
-    }
 
-    return TokenStatusAndData(status = tokenStatus, data = tokenData)
-  }
 
-  fun getAuthorizationRequest(): AuthorizationRequest {
-    return AuthorizationRequest.Builder(
-        ProjectConfig.authServiceConfig,
-        ProjectConfig.clientId,
-        ResponseTypeValues.CODE,
-        ProjectConfig.redirectUri.toUri(),
-      )
-      .setScope("read-repos")
-      .build()
-  }
-
-  fun handleAuthResult(result: ActivityResult, onTokenRequested: (TokenRequestResult) -> Unit) {
-    val dataIntent = result.data
-    if (dataIntent == null) {
-      onTokenRequested(
-        TokenRequestResult(
-          status = TokenRequestResultType.FAILED,
-          errorMessage = "Empty auth result",
-        )
-      )
-      return
-    }
-
-    val response = AuthorizationResponse.fromIntent(dataIntent)
-    val exception = AuthorizationException.fromIntent(dataIntent)
-
-    when {
-      response?.authorizationCode != null -> {
-        // Authorization successful, exchange the code for tokens
-        var errorMessage: String? = null
-        authService.performTokenRequest(response.createTokenExchangeRequest()) {
-          tokenResponse,
-          tokenEx ->
-          if (tokenResponse != null) {
-            if (tokenResponse.accessToken == null) {
-              errorMessage = "Empty access token"
-            } else if (tokenResponse.refreshToken == null) {
-              errorMessage = "Empty refresh token"
-            } else if (tokenResponse.accessTokenExpirationTime == null) {
-              errorMessage = "Empty expiration time"
-            } else {
-              // Token exchange successful. Store the tokens securely
-              Log.d(TAG, "Token exchange successful. Storing tokens...")
-              saveAccessToken(
-                accessToken = tokenResponse.accessToken!!,
-                refreshToken = tokenResponse.refreshToken!!,
-                expiresAt = tokenResponse.accessTokenExpirationTime!!,
-              )
-              curAccessToken = tokenResponse.accessToken!!
-              Log.d(TAG, "Token successfully saved.")
-            }
-          } else if (tokenEx != null) {
-            errorMessage = "Token exchange failed: ${tokenEx.message}"
-          } else {
-            errorMessage = "Token exchange failed"
-          }
-          if (errorMessage == null) {
-            onTokenRequested(TokenRequestResult(status = TokenRequestResultType.SUCCEEDED))
-          } else {
-            onTokenRequested(
-              TokenRequestResult(
-                status = TokenRequestResultType.FAILED,
-                errorMessage = errorMessage,
-              )
-            )
-          }
-        }
-      }
-
-      exception != null -> {
-        onTokenRequested(
-          TokenRequestResult(
-            status =
-              if (exception.message == "User cancelled flow") TokenRequestResultType.USER_CANCELLED
-              else TokenRequestResultType.FAILED,
-            errorMessage = exception.message,
-          )
-        )
-      }
-
-      else -> {
-        onTokenRequested(TokenRequestResult(status = TokenRequestResultType.USER_CANCELLED))
-      }
-    }
-  }
-
-  fun saveAccessToken(accessToken: String, refreshToken: String, expiresAt: Long) {
-    dataStoreRepository.saveAccessTokenData(
-      accessToken = accessToken,
-      refreshToken = refreshToken,
-      expiresAt = expiresAt,
-    )
-  }
-
-  fun clearAccessToken() {
-    dataStoreRepository.clearAccessTokenData()
-  }
-
-  private fun processPendingDownloads() {
-    // Cancel all pending downloads for the retrieved models.
-    downloadRepository.cancelAll {
-      Log.d(TAG, "All workers are cancelled.")
-
-      viewModelScope.launch(Dispatchers.Main) {
-        val checkedModelNames = mutableSetOf<String>()
-        val tokenStatusAndData = getTokenStatusAndData()
-        for (task in uiState.value.tasks) {
-          for (model in task.models) {
-            if (checkedModelNames.contains(model.name)) {
-              continue
-            }
-
-            // Start download for partially downloaded models.
-            val downloadStatus = uiState.value.modelDownloadStatus[model.name]?.status
-            if (downloadStatus == ModelDownloadStatusType.PARTIALLY_DOWNLOADED) {
-              if (
-                tokenStatusAndData.status == TokenStatus.NOT_EXPIRED &&
-                  tokenStatusAndData.data != null
-              ) {
-                model.accessToken = tokenStatusAndData.data.accessToken
-              }
-              Log.d(TAG, "Sending a new download request for '${model.name}'")
-              downloadRepository.downloadModel(
-                task = task,
-                model = model,
-                onStatusUpdated = this@ModelManagerViewModel::setDownloadStatus,
-              )
-            }
-
-            checkedModelNames.add(model.name)
-          }
-        }
-      }
-    }
-  }
 
   fun loadModelAllowlist() {
     _uiState.update {
@@ -713,20 +479,8 @@ constructor(
         // modelAllowlist = gson.fromJson(TEST_MODEL_ALLOW_LIST, ModelAllowlist::class.java)
 
         if (modelAllowlist == null) {
-          // Load from github.
-          val url =
-            "https://raw.githubusercontent.com/google-ai-edge/gallery/refs/heads/main/model_allowlists/${BuildConfig.VERSION_NAME.replace(".", "_")}.json"
-          Log.d(TAG, "Loading model allowlist from internet. Url: $url")
-          val data = getJsonResponse<ModelAllowlist>(url = url)
-          modelAllowlist = data?.jsonObj
-
-          if (modelAllowlist == null) {
-            Log.w(TAG, "Failed to load model allowlist from internet. Trying to load it from disk")
-            modelAllowlist = readModelAllowlistFromDisk()
-          } else {
-            Log.d(TAG, "Done: loading model allowlist from internet")
-            saveModelAllowlistToDisk(modelAllowlistContent = data?.textContent ?: "{}")
-          }
+          Log.w(TAG, "No test allowlist found. Trying to load it from disk")
+          modelAllowlist = readModelAllowlistFromDisk()
         }
 
         if (modelAllowlist == null) {
@@ -735,7 +489,6 @@ constructor(
           val curTasks = customTasks.map { it.task }
           processTasks()
           _uiState.update { createUiState().copy(loadingModelAllowlist = false, tasks = curTasks, loadingModelAllowlistError = "") }
-          processPendingDownloads()
           return@launch
         }
 
@@ -776,9 +529,6 @@ constructor(
 
         // Update UI state.
         _uiState.update { createUiState().copy(loadingModelAllowlist = false, tasks = curTasks) }
-
-        // Process pending downloads.
-        processPendingDownloads()
       } catch (e: Exception) {
         e.printStackTrace()
       }

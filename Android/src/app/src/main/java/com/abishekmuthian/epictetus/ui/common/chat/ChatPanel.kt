@@ -590,8 +590,6 @@ fun ChatPanel(
         inProgress = uiState.inProgress,
         isResettingSession = uiState.isResettingSession,
         modelPreparing = uiState.preparing,
-        imageCount = imageCountToLastConfigChange,
-        audioClipMessageCount = audioClipMesssageCountToLastconfigChange,
         modelInitializing =
           modelInitializationStatus?.status == ModelInitializationStatusType.INITIALIZING,
         textFieldPlaceHolderRes = task.textInputPlaceHolderRes,
@@ -614,18 +612,7 @@ fun ChatPanel(
           )
         },
         onStopButtonClicked = onStopButtonClicked,
-        onSetAudioRecorderVisible = { start ->
-          showAudioRecorder = start
-          if (!showAudioRecorder) {
-            curAmplitude = 0
-          }
-        },
-        onAmplitudeChanged = { curAmplitude = it },
         showPromptTemplatesInMenu = false,
-        showImagePickerInMenu =
-          selectedModel.llmSupportImage && task.id === BuiltInTaskId.LLM_ASK_IMAGE,
-        showAudioItemsInMenu =
-          selectedModel.llmSupportAudio && task.id === BuiltInTaskId.LLM_ASK_AUDIO,
         showStopButtonWhenInProgress = showStopButtonInInputWhenInProgress,
       )
     }

@@ -47,37 +47,6 @@ fun LlmChatScreen(
   )
 }
 
-@Composable
-fun LlmAskImageScreen(
-  modelManagerViewModel: ModelManagerViewModel,
-  navigateUp: () -> Unit,
-  modifier: Modifier = Modifier,
-  viewModel: LlmAskImageViewModel = hiltViewModel(),
-) {
-  ChatViewWrapper(
-    viewModel = viewModel,
-    modelManagerViewModel = modelManagerViewModel,
-    taskId = BuiltInTaskId.LLM_ASK_IMAGE,
-    navigateUp = navigateUp,
-    modifier = modifier,
-  )
-}
-
-@Composable
-fun LlmAskAudioScreen(
-  modelManagerViewModel: ModelManagerViewModel,
-  navigateUp: () -> Unit,
-  modifier: Modifier = Modifier,
-  viewModel: LlmAskAudioViewModel = hiltViewModel(),
-) {
-  ChatViewWrapper(
-    viewModel = viewModel,
-    modelManagerViewModel = modelManagerViewModel,
-    taskId = BuiltInTaskId.LLM_ASK_AUDIO,
-    navigateUp = navigateUp,
-    modifier = modifier,
-  )
-}
 
 @Composable
 fun ChatViewWrapper(

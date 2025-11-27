@@ -22,7 +22,6 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
 import android.util.Log
-import androidx.exifinterface.media.ExifInterface
 import com.abishekmuthian.epictetus.data.SAMPLE_RATE
 import com.google.gson.Gson
 import java.io.FileInputStream
@@ -254,27 +253,6 @@ fun decodeSampledBitmapFromUri(context: Context, uri: Uri, reqWidth: Int, reqHei
     ?.use { BitmapFactory.decodeStream(it, null, options) }
 }
 
-fun rotateBitmap(bitmap: Bitmap, orientation: Int): Bitmap {
-  val matrix = Matrix()
-  when (orientation) {
-    ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
-    ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
-    ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
-    ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.preScale(-1.0f, 1.0f)
-    ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.preScale(1.0f, -1.0f)
-    ExifInterface.ORIENTATION_TRANSPOSE -> {
-      matrix.postRotate(90f)
-      matrix.preScale(-1.0f, 1.0f)
-    }
-    ExifInterface.ORIENTATION_TRANSVERSE -> {
-      matrix.postRotate(270f)
-      matrix.preScale(-1.0f, 1.0f)
-    }
-    ExifInterface.ORIENTATION_NORMAL -> return bitmap
-    else -> return bitmap
-  }
-  return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-}
 
 private fun calculateInSampleSize(
   options: BitmapFactory.Options,

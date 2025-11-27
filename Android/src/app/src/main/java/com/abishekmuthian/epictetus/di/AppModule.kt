@@ -27,8 +27,6 @@ import com.abishekmuthian.epictetus.SettingsSerializer
 import com.abishekmuthian.epictetus.UserDataSerializer
 import com.abishekmuthian.epictetus.data.DataStoreRepository
 import com.abishekmuthian.epictetus.data.DefaultDataStoreRepository
-import com.abishekmuthian.epictetus.data.DefaultDownloadRepository
-import com.abishekmuthian.epictetus.data.DownloadRepository
 import com.abishekmuthian.epictetus.proto.Settings
 import com.abishekmuthian.epictetus.proto.UserData
 import dagger.Module
@@ -99,13 +97,4 @@ internal object AppModule {
     return DefaultDataStoreRepository(dataStore, userDataDataStore)
   }
 
-  // Provides DownloadRepository
-  @Provides
-  @Singleton
-  fun provideDownloadRepository(
-    @ApplicationContext context: Context,
-    lifecycleProvider: AppLifecycleProvider,
-  ): DownloadRepository {
-    return DefaultDownloadRepository(context, lifecycleProvider)
-  }
 }

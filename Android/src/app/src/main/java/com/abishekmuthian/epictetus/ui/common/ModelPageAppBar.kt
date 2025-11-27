@@ -16,6 +16,7 @@
 
 package com.abishekmuthian.epictetus.ui.common
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.MapsUgc
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -75,6 +77,7 @@ fun ModelPageAppBar(
   onConfigChanged: (oldConfigValues: Map<String, Any>, newConfigValues: Map<String, Any>) -> Unit =
     { _, _ ->
     },
+  onInfoClicked: () -> Unit = {},
 ) {
   var showConfigDialog by remember { mutableStateOf(false) }
   val modelManagerUiState by modelManagerViewModel.uiState.collectAsState()
@@ -134,18 +137,14 @@ fun ModelPageAppBar(
       val downloadSucceeded = curDownloadStatus?.status == ModelDownloadStatusType.SUCCEEDED
       val showConfigButton = model.configs.isNotEmpty() && downloadSucceeded
       val showResetSessionButton = canShowResetSessionButton && downloadSucceeded
-      Box(modifier = Modifier.size(42.dp), contentAlignment = Alignment.Center) {
-        var configButtonOffset = 0.dp
-        if (showConfigButton && canShowResetSessionButton) {
-          configButtonOffset = (-40).dp
-        }
+
+      Row {
         if (showConfigButton) {
           val enableConfigButton = !isModelInitializing && !inProgress && isModelInitialized
           IconButton(
             onClick = { showConfigDialog = true },
             enabled = enableConfigButton,
-            modifier =
-              Modifier.offset(x = configButtonOffset).alpha(if (!enableConfigButton) 0.5f else 1f),
+            modifier = Modifier.alpha(if (!enableConfigButton) 0.5f else 1f),
           ) {
             Icon(
               imageVector = Icons.Rounded.Tune,
@@ -155,38 +154,18 @@ fun ModelPageAppBar(
             )
           }
         }
-        // Reset session button (chat button) - commented out as unnecessary for our purpose.
-        // if (showResetSessionButton) {
-        //   if (isResettingSession) {
-        //     CircularProgressIndicator(
-        //       trackColor = MaterialTheme.colorScheme.surfaceVariant,
-        //       strokeWidth = 2.dp,
-        //       modifier = Modifier.size(16.dp),
-        //     )
-        //   } else {
-        //     val enableResetButton = !isModelInitializing && !modelPreparing && isModelInitialized
-        //     IconButton(
-        //       onClick = { onResetSessionClicked(model) },
-        //       enabled = enableResetButton,
-        //       modifier = Modifier.alpha(if (!enableResetButton) 0.5f else 1f),
-        //     ) {
-        //       Box(
-        //         modifier =
-        //           Modifier.size(32.dp)
-        //             .clip(CircleShape)
-        //             .background(MaterialTheme.colorScheme.surfaceContainer),
-        //         contentAlignment = Alignment.Center,
-        //       ) {
-        //         Icon(
-        //           imageVector = Icons.Rounded.MapsUgc,
-        //           contentDescription = stringResource(R.string.cd_reset_session_icon),
-        //           tint = MaterialTheme.colorScheme.onSurface,
-        //           modifier = Modifier.size(20.dp),
-        //         )
-        //       }
-        //     }
-        //   }
-        // }
+
+        // Info button for OSS licenses
+        IconButton(
+          onClick = onInfoClicked
+        ) {
+          Icon(
+            imageVector = Icons.Rounded.Info,
+            contentDescription = "Open source licenses",
+            tint = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.size(20.dp),
+          )
+        }
       }
     },
   )

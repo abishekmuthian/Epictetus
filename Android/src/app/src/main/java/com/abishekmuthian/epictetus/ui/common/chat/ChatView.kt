@@ -20,8 +20,11 @@ package com.abishekmuthian.epictetus.ui.common.chat
 // import com.abishekmuthian.epictetus.ui.preview.PreviewModelManagerViewModel
 // import com.abishekmuthian.epictetus.ui.preview.TASK_TEST1
 // import com.abishekmuthian.epictetus.ui.theme.GalleryTheme
+import android.content.Intent
 import android.graphics.Bitmap
+import android.net.Uri
 import android.util.Log
+import com.google.android.gms.oss.licenses.OssLicensesMenuActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedContent
@@ -43,8 +46,16 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.text.ClickableText
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -110,6 +121,7 @@ fun ChatView(
   val activity = LocalActivity.current
   val scope = rememberCoroutineScope()
   var navigatingUp by remember { mutableStateOf(false) }
+  var showAttributionDialog by remember { mutableStateOf(false) }
 
   val handleNavigateUp = {
     navigatingUp = true
@@ -176,6 +188,9 @@ fun ChatView(
             modelManagerViewModel.cleanupModel(context = context, task = task, model = prevModel)
           }
           modelManagerViewModel.selectModel(model = curModel)
+        },
+        onInfoClicked = {
+          showAttributionDialog = true
         },
       )
     },
@@ -272,6 +287,73 @@ fun ChatView(
         }
       }
     }
+  }
+
+  // Attribution dialog for Google AI Edge Gallery fork
+  if (showAttributionDialog) {
+    AlertDialog(
+      onDismissRequest = { showAttributionDialog = false },
+      title = { Text("About Epictetus") },
+      text = {
+        val annotatedText = buildAnnotatedString {
+          append("Get practical Stoic advice from Epictetus for your daily problems. Your chats stay fully private with a 100% offline, blazingly-fast ARM-optimized local model.\n\nSource code: ")
+
+          val githubUrl = "https://github.com/abishekmuthian/Epictetus"
+          pushStringAnnotation(tag = "URL", annotation = githubUrl)
+          pushStyle(style = SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline))
+          append(githubUrl)
+          pop()
+          pop()
+
+          append("\n\nThis app is forked from ")
+
+          val originalProjectUrl = "https://github.com/google-ai-edge/gallery"
+          pushStringAnnotation(tag = "URL", annotation = originalProjectUrl)
+          pushStyle(style = SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline))
+          append("Google AI Edge Gallery")
+          pop()
+          pop()
+
+          append(".\n\nVersion 0.0.1")
+        }
+
+        ClickableText(
+          text = annotatedText,
+          onClick = { offset ->
+            annotatedText.getStringAnnotations(tag = "URL", start = offset, end = offset)
+              .firstOrNull()?.let { annotation ->
+                try {
+                  val intent = Intent(Intent.ACTION_VIEW, Uri.parse(annotation.item))
+                  context.startActivity(intent)
+                } catch (e: Exception) {
+                  Log.e("ChatView", "Failed to open URL: ${e.message}")
+                }
+              }
+          }
+        )
+      },
+      confirmButton = {
+        TextButton(
+          onClick = {
+            showAttributionDialog = false
+            try {
+              val intent = Intent(context, OssLicensesMenuActivity::class.java)
+              OssLicensesMenuActivity.setActivityTitle("Open Source Licenses")
+              context.startActivity(intent)
+            } catch (e: Exception) {
+              Log.e("ChatView", "Failed to open OSS licenses: ${e.message}")
+            }
+          }
+        ) {
+          Text("View Licenses")
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = { showAttributionDialog = false }) {
+          Text("Close")
+        }
+      }
+    )
   }
 }
 
