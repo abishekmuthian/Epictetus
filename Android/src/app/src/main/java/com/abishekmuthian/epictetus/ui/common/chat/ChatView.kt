@@ -314,7 +314,7 @@ fun ChatView(
           pop()
           pop()
 
-          append(".\n\nVersion 0.0.1")
+          append(".\n\nVersion 0.0.2")
         }
 
         ClickableText(
